@@ -104,13 +104,13 @@ func StringAndCrcSum(data string) string {
 修订信息:
 *********************************************************************/
 func StringCheckCRC(data string) (original string, ok bool) {
-	if len(original) > 4 {
-		ori := []byte(data)[:len(data)-4]
-		oricrc := []byte(data)[len(data)-4:]
+	if len(data) > 4 {
+		ori := []byte(data)[:len(data)-4]    //原始数据
+		oricrc := []byte(data)[len(data)-4:] //原始CRC
 		checksum := CrcSum(ori)
 		int16buf := new(bytes.Buffer)
 		binary.Write(int16buf, binary.LittleEndian, checksum)
-		crcstr := fmt.Sprintf("%X", int16buf.Bytes())
+		crcstr := fmt.Sprintf("%X", int16buf.Bytes()) //从原始数据中提取出的CRC
 		if strings.EqualFold(crcstr, string(oricrc)) {
 			ok = true
 			original = string(ori)
