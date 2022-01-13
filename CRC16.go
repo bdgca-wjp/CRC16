@@ -45,11 +45,12 @@ var mbTable = []uint16{
 函数名:CrcSum(data []byte) uint16
 功  能:对输入字符串进行CRC16校验，并将校验和输出
 参  数:data []byte:原始字符串
+        hlbyte ...bool:高字节在前
 返回值:uint16:校验和
 创建时间:2019年1月24日
 修订信息:
 *********************************************************************/
-func CrcSum(data []byte) uint16 {
+func CrcSum(data []byte, hlbyte ...bool) []byte {
 	var crc16 uint16
 	crc16 = 0xffff
 	for _, v := range data {
@@ -57,7 +58,14 @@ func CrcSum(data []byte) uint16 {
 		crc16 >>= 8
 		crc16 ^= mbTable[n]
 	}
-	return crc16
+	if len(hlbyte) > 0 && hlbyte[0] {
+		h := crc16 << 8
+		l := crc16 >> 8
+		crc16 = h ^ l
+	}
+	int16buf := new(bytes.Buffer)
+	binary.Write(int16buf, binary.LittleEndian, crc16)
+	return int16buf.Bytes()
 }
 
 /*********************************************************************
@@ -68,16 +76,16 @@ func CrcSum(data []byte) uint16 {
 创建时间:2019年1月24日
 修订信息:
 *********************************************************************/
-func DataAndCrcSum(data []byte) []byte {
-	checksum := CrcSum(data)
-	int16buf := new(bytes.Buffer)
-	binary.Write(int16buf, binary.LittleEndian, checksum)
-	data = append(data, int16buf.Bytes()...)
+func DataAndCrcSum(data []byte, hlbyte ...bool) []byte {
+	checksum := CrcSum(data, hlbyte...)
+	//int16buf := new(bytes.Buffer)
+	//binary.Write(int16buf, binary.LittleEndian, checksum)
+	data = append(data, checksum...)
 	return data
 }
 
-func BytesAndCrcSum(data []byte) []byte {
-	return DataAndCrcSum(data)
+func BytesAndCrcSum(data []byte, hlbyte ...bool) []byte {
+	return DataAndCrcSum(data, hlbyte...)
 }
 
 /*********************************************************************
@@ -88,11 +96,11 @@ func BytesAndCrcSum(data []byte) []byte {
 创建时间:2019年1月24日
 修订信息:
 *********************************************************************/
-func StringAndCrcSum(data string) string {
-	checksum := CrcSum([]byte(data))
-	int16buf := new(bytes.Buffer)
-	binary.Write(int16buf, binary.LittleEndian, checksum)
-	crcstr := fmt.Sprintf("%X", int16buf.Bytes())
+func StringAndCrcSum(data string, hlbyte ...bool) string {
+	checksum := CrcSum([]byte(data), hlbyte...)
+	//int16buf := new(bytes.Buffer)
+	//binary.Write(int16buf, binary.LittleEndian, checksum)
+	crcstr := fmt.Sprintf("%X", checksum)
 	data = string(append([]byte(data), crcstr...))
 	return data
 }
@@ -107,14 +115,14 @@ func StringAndCrcSum(data string) string {
 创建时间:2019年1月24日
 修订信息:
 *********************************************************************/
-func StringCheckCRC(data string) (original string, ok bool) {
+func StringCheckCRC(data string, hlbyte ...bool) (original string, ok bool) {
 	if len(data) > 4 {
 		ori := []byte(data)[:len(data)-4]    //原始数据
 		oricrc := []byte(data)[len(data)-4:] //原始CRC
-		checksum := CrcSum(ori)
-		int16buf := new(bytes.Buffer)
-		binary.Write(int16buf, binary.LittleEndian, checksum)
-		crcstr := fmt.Sprintf("%X", int16buf.Bytes()) //从原始数据中提取出的CRC
+		checksum := CrcSum(ori, hlbyte...)
+		//int16buf := new(bytes.Buffer)
+		//binary.Write(int16buf, binary.LittleEndian, checksum)
+		crcstr := fmt.Sprintf("%X", checksum) //从原始数据中提取出的CRC
 		if strings.EqualFold(crcstr, string(oricrc)) {
 			ok = true
 			original = string(ori)
@@ -139,16 +147,18 @@ func StringCheckCRC(data string) (original string, ok bool) {
 创建时间:2019年1月24日
 修订信息:
 *********************************************************************/
-func BytesCheckCRC(data []byte) (original []byte, ok bool) {
+func BytesCheckCRC(data []byte, hlbyte ...bool) (original []byte, ok bool) {
 	if len(data) > 2 {
 		ori := data[:len(data)-2]    //原始数据
 		oricrc := data[len(data)-2:] //原始CRC
-		checksum := CrcSum(ori)
-		int16buf := new(bytes.Buffer)
-		binary.Write(int16buf, binary.LittleEndian, checksum)
-		crcstr := fmt.Sprintf("%X", int16buf.Bytes()) //从原始数据中提取出的CRC
-
-		if crcstr == fmt.Sprintf("%X", oricrc) {
+		checksum := CrcSum(ori, hlbyte...)
+		//int16buf := new(bytes.Buffer)
+		//binary.Write(int16buf, binary.LittleEndian, checksum)
+		crc := append(checksum[1:], checksum[0])
+		hex_crc1 := fmt.Sprintf("%X", crc)
+		hex_crc2 := fmt.Sprintf("%X", checksum) //从原始数据中提取出的CRC
+		hex_ori := fmt.Sprintf("%X", oricrc)
+		if hex_crc1 == hex_ori || hex_crc2 == hex_ori {
 			ok = true
 			original = ori
 		} else {
